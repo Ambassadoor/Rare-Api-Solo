@@ -1,0 +1,14 @@
+class Subscription:
+    def __init__(self, id, follower_id, author_id, created_on):
+        self.id = id
+        self.follower_id = follower_id
+        self.author_id = author_id
+        self.created_on = created_on
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "follower_id": self.follower_id,
+            "author_id": self.author_id,
+            "created_on": self.created_on,
+        }
