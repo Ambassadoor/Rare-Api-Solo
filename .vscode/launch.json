@@ -6,9 +6,9 @@
     "configurations": [
         {
             "name": "Python: Request Handler",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "json-server.py",
+            "program": "json_server.py",
             "console": "integratedTerminal"
         }
     ]

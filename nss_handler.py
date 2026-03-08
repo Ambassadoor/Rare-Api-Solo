@@ -1,7 +1,9 @@
+import os
 from enum import Enum
 from urllib.parse import urlparse, parse_qs
 from http.server import BaseHTTPRequestHandler
 
+origin = os.getenv("ALLOWED_ORIGIN")
 
 class status(Enum):
     HTTP_200_SUCCESS = 200
@@ -10,6 +12,7 @@ class status(Enum):
     HTTP_400_CLIENT_ERROR_BAD_REQUEST_DATA = 400
     HTTP_404_CLIENT_ERROR_RESOURCE_NOT_FOUND = 404
     HTTP_500_SERVER_ERROR = 500
+
 
 class HandleRequests(BaseHTTPRequestHandler):
 
@@ -37,15 +40,17 @@ class HandleRequests(BaseHTTPRequestHandler):
 
         return url_dictionary
 
-    def set_response_code(self, status):
-        self.send_response(status)
+    def set_response_code(self, status_code):
+        self.send_response(status_code)
         self.send_header("Content-type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Credentials", "true")
         self.end_headers()
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Credentials", "true")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
         self.send_header(
             "Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Accept"
