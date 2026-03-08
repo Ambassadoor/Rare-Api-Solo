@@ -140,7 +140,7 @@ def get_user_info_from_token(token):
             JOIN session s
             ON u.id = s.user_id
             WHERE s.token = ?
-            AND s.last_seen_at > datetime('now', '-30 minutes)
+            AND s.last_seen_at > datetime('now', '-30 minutes')
             """,
             (token,),
         )

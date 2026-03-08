@@ -60,7 +60,9 @@ class JSONServer(HandleRequests):
             if token:
                 response_body = get_user_info_from_token(token)
 
-                if json.loads(response_body)["valid"] is False:
+                json_body = json.loads(response_body)
+
+                if "valid" in json_body and json_body["valid"] is False:
                     return self.response(response_body, 401)
 
                 return self.response(response_body, status.HTTP_200_SUCCESS.value)
