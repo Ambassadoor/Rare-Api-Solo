@@ -32,7 +32,7 @@ class JSONServer(HandleRequests):
                 return part[len("token=") :]
         return None
 
-    def _clear_auth_cookie(self, status_code, valid=False):
+    def _clear_auth_cookie(self, status_code, error, message):
         """Sends a JSON response and clears the auth cookie.
 
         Args:
@@ -47,7 +47,7 @@ class JSONServer(HandleRequests):
             "Set-Cookie", "token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
         )
         self.end_headers()
-        self.wfile.write(json.dumps({"valid": valid}).encode())
+        self.wfile.write(json.dumps({"error": error, "message": message}).encode())
         return
 
     def _require_auth(self):
@@ -60,14 +60,14 @@ class JSONServer(HandleRequests):
         """
         token = self._get_token()
         if not token:
-            self._clear_auth_cookie(401, False)
+            self._clear_auth_cookie(401, 'no_token', 'No active session token')
             return None, True
 
         user_json = get_user_info_from_token(token)
         user_data = json.loads(user_json)
 
         if user_data.get("valid") is False:
-            self._clear_auth_cookie(401, False)
+            self._clear_auth_cookie(401, 'session_expired', 'Session expired, please log in again')
             return None, True
 
         return user_data, False
@@ -156,7 +156,7 @@ class JSONServer(HandleRequests):
             if token:
                 logout_user(token)
 
-            self._clear_auth_cookie(200, False)
+            self._clear_auth_cookie(200, None ,"User Successfully logged out")
             return
 
         else:
