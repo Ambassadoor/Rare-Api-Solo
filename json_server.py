@@ -2,7 +2,8 @@
 
 import os
 import json
-#from http.cookies import SimpleCookie
+
+# from http.cookies import SimpleCookie
 from http.server import HTTPServer
 from dotenv import load_dotenv
 from nss_handler import HandleRequests, status
@@ -16,37 +17,61 @@ origin = os.getenv("ALLOWED_ORIGIN")
 
 
 class JSONServer(HandleRequests):
-    """Server class to handle incoming HTTP requests for shipping ships"""
+    """HTTP request handler for Rare API routes."""
 
     def _get_token(self):
-        """Parses the session token from the Cookie header
+        """Extracts the session token from the Cookie header.
 
         Returns:
-            str: Session token
+            str | None: Session token if present, otherwise None
         """
         cookie_header = self.headers.get("Cookie", "")
         for part in cookie_header.split(";"):
             part = part.strip()
             if part.startswith("token="):
-                return part[len("token="):]
+                return part[len("token=") :]
         return None
 
+    def _clear_auth_cookie(self, status_code, valid=False):
+        """Sends a JSON response and clears the auth cookie.
+
+        Args:
+            status_code (int): HTTP status code to return
+            valid (bool): Value for the response body `{"valid": ...}`
+        """
+        self.send_response(status_code)
+        self.send_header("Content-type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Access-Control-Allow-Credentials", "true")
+        self.send_header(
+            "Set-Cookie", "token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+        )
+        self.end_headers()
+        self.wfile.write(json.dumps({"valid": valid}).encode())
+        return
+
     def _require_auth(self):
-        """Checks for active session token
+        """Validates session token and returns authenticated user data.
 
         Returns:
-            json-string: {User data from current unexpired session, 401 response if no/expired session}
+            tuple[dict | None, bool]: `(user_data, handled)` where:
+                - `user_data` is the authenticated user payload when valid
+                - `handled` is True when this method already sent a 401 response
         """
         token = self._get_token()
         if not token:
-            return None, self.response(json.dumps({"valid": False}), 401)
+            self._clear_auth_cookie(401, False)
+            return None, True
 
         user_json = get_user_info_from_token(token)
-        if json.loads(user_json).get("valid") is False:
-            return None, self.response(json.dumps({"valid": False}), 401)
-        
-        return json.loads(user_json), None
-    
+        user_data = json.loads(user_json)
+
+        if user_data.get("valid") is False:
+            self._clear_auth_cookie(401, False)
+            return None, True
+
+        return user_data, False
+
     def do_GET(self):
         """Handle GET requests from a client"""
 
@@ -55,18 +80,11 @@ class JSONServer(HandleRequests):
         requested_resource = url["requested_resource"]
 
         if requested_resource == "me":
-            token = self._get_token()
+            user, handled = self._require_auth()
+            if handled:
+                return
 
-            if token:
-                response_body = get_user_info_from_token(token)
-
-                json_body = json.loads(response_body)
-
-                if "valid" in json_body and json_body["valid"] is False:
-                    return self.response(response_body, 401)
-
-                return self.response(response_body, status.HTTP_200_SUCCESS.value)
-            return self.response(json.dumps({"valid": False}), 401)
+            return self.response(json.dumps(user), status.HTTP_200_SUCCESS.value)
 
         elif requested_resource == "user":
             # Example workflow for get user by id
@@ -138,14 +156,7 @@ class JSONServer(HandleRequests):
             if token:
                 logout_user(token)
 
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", origin)
-            self.send_header("Access-Control-Allow-Credentials", "true")
-            self.send_header(
-                "Set-Cookie", "token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
-            )
-            self.end_headers()
-            self.wfile.write(json.dumps({"valid": False}).encode())
+            self._clear_auth_cookie(200, False)
             return
 
         else:

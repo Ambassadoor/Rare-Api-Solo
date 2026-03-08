@@ -112,11 +112,17 @@ def logout_user(token):
 
 
 def get_user_info_from_token(token):
-    """On active session, resets session timer and returns user info for for session.
-    On inactive, deletes expired session
+    """Returns user data for a valid session token.
+
+    If the token is active (not idle-expired), this updates `last_seen_at`
+    and returns serialized user data. If the token is missing/expired, this
+    deletes the stale session row and returns `{"valid": false}`.
 
     Args:
         token (str): User session token
+
+    Returns:
+        str: JSON string containing user data or `{"valid": false}`
     """
     with sqlite3.connect("./db.sqlite3") as conn:
         conn.row_factory = sqlite3.Row
@@ -152,16 +158,18 @@ def get_user_info_from_token(token):
                 """
                 DELETE FROM session
                 WHERE token = ?
-                """, (token,)
+                """,
+                (token,),
             )
             return json.dumps({"valid": False})
-        
+
         db_cursor.execute(
             """
             UPDATE session SET
             last_seen_at = datetime('now')
             WHERE token = ?
-            """, (token,)
+            """,
+            (token,),
         )
 
         user = User(**dict(row)).to_dict()
